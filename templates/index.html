@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+ <html lang="de">
+ <head> 
+ <title>hochzeit mochzeit</title>
+ <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+ </head> 
+ <body>
+ <div id="container"> 
+ {% for item in items %}	
+ <p>{{ item }}</p><audio controls src='/sound/{{item}}'></audio><a href='/sound/{{item}}' download>download...</a>
+ {% endfor %}
+ </div>
+
+ </body> 
+
+ </html>

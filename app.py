@@ -31,7 +31,7 @@ currentFrames = []
 def saveRecordingAs(name):
     global currentFrames
     flatData = list(itertools.chain(currentFrames))
-    print(len(flatData))
+    print(f"recorded for {(len(flatData) * CHUNK) / SAMPLE_RATE} seconds")
     arr = NP.array(flatData)
     with wave.open(name, 'wb') as wa:
         wa.setnchannels(1)
@@ -102,6 +102,14 @@ def onPiecePutDown():
     saveRecordingAs(f"recording-{timestamp}.wav")
     print("saved recording")
 
+def getAllFilesWithExtension(ext):
+    import glob, os
+    files = []
+    for file in glob.glob(f"*{ext}"):
+        print(file)
+        files.append(file)
+    return files
+
 def main():
     info = p.get_host_api_info_by_index(0)
     numdevices = info.get('deviceCount')
@@ -118,11 +126,17 @@ def main():
     GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=50)
     signal.signal(signal.SIGINT, signal_handler)
 
-    from flask import Flask
+    from flask import Flask, render_template, send_file
     app = Flask("hurensohn")
     @app.route("/")
     def index():
-        return "okay!"
+        files = getAllFilesWithExtension('.wav')
+        return render_template('index.html', items=files)
+
+    @app.route('/sound/<id>')
+    def s(id):
+        app.logger.error(id)
+        return send_file(id)
 
     app.run(host='0.0.0.0', port=8080)
 
