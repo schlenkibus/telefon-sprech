@@ -107,7 +107,8 @@ def getAllFilesWithExtension(ext):
     files = []
     for file in glob.glob(f"*{ext}"):
         print(file)
-        files.append(file)
+        if file != 'message.wav':
+            files.append(file)
     return files
 
 def main():
