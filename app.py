@@ -16,6 +16,7 @@ from atomic import AtomicLong
 import itertools
 import numpy as NP
 import datetime
+import os
 
 SAMPLE_RATE = 48000
 CHUNK = 1024
@@ -29,7 +30,7 @@ currentFrames = []
 def saveRecordingAs(name):
     global currentFrames
     flatData = list(itertools.chain(currentFrames))
-    print(flatData)
+    print(len(flatData))
     arr = NP.array(flatData)
     with wave.open(name, 'wb') as wa:
         wa.setnchannels(1)
@@ -39,8 +40,8 @@ def saveRecordingAs(name):
 
     currentFrames = []
 
-def playSoundSync(path):
-    play_file(path)
+def playSoundAsync(path):
+    os.system("aplay message.wav &")
 
 def stopRecording(stream):
     stream.stop_stream()
@@ -49,7 +50,7 @@ def stopRecording(stream):
 
 def startRecording():
     global p
-#    playSoundSync("message.wav")
+    playSoundAsync("message.wav")
     stream = p.open(input_device_index=1,format=sample_format, channels=channels, rate=SAMPLE_RATE, frames_per_buffer=CHUNK, input=True, stream_callback=audio_chunk_ready)
     stream.start_stream()
     return stream
@@ -80,7 +81,7 @@ def signal_handler(sig, frame):
 def audio_chunk_ready(in_data, frame_count, time_info, status):
     global currentFrames
     currentFrames.append(in_data)
-    print(f"status {status}, time {time_info}")
+#    print(f"status {status}, time {time_info}")
     return (in_data, pyaudio.paContinue)
 
 PIN = 21
@@ -107,12 +108,8 @@ def main():
         if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
             print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
             print(p.get_device_info_by_index(i))
-    global taskScheduled
-    global inInterrupt
-    global stream
 
-    taskScheduled = AtomicLong(0)
-    inInterrupt = AtomicLong(0)
+    global stream
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
