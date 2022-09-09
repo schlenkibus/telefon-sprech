@@ -17,6 +17,7 @@ import itertools
 import numpy as NP
 import datetime
 import os
+import flask
 
 SAMPLE_RATE = 48000
 CHUNK = 1024
@@ -62,6 +63,7 @@ def onButtonChanged(channel):
     global isDown
     global taskScheduled
     global inInterrupt
+
     if isDown.value == 1:
         isDown.value = 0
     else:
@@ -115,6 +117,15 @@ def main():
     GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=50)
     signal.signal(signal.SIGINT, signal_handler)
+
+    from flask import Flask
+    app = Flask("hurensohn")
+    @app.route("/")
+    def index():
+        return "okay!"
+
+    app.run(host='0.0.0.0', port=8080)
+
     signal.pause()
 
 main()
