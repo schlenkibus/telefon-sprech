@@ -9,7 +9,7 @@ import time
 import signal
 import sys
 import RPi.GPIO as GPIO
-from playsound import playsound
+from play_sounds import play_file
 import pyaudio
 import wave
 from atomic import AtomicLong
@@ -17,7 +17,7 @@ import itertools
 import numpy as NP
 import datetime
 
-SAMPLE_RATE = 44100
+SAMPLE_RATE = 48000
 CHUNK = 1024
 sample_format = pyaudio.paInt16
 channels = 1
@@ -29,6 +29,7 @@ currentFrames = []
 def saveRecordingAs(name):
     global currentFrames
     flatData = list(itertools.chain(currentFrames))
+    print(flatData)
     arr = NP.array(flatData)
     with wave.open(name, 'wb') as wa:
         wa.setnchannels(1)
@@ -38,8 +39,8 @@ def saveRecordingAs(name):
 
     currentFrames = []
 
-def playSoundSync(path): 
-    playsound(path)
+def playSoundSync(path):
+    play_file(path)
 
 def stopRecording(stream):
     stream.stop_stream()
@@ -48,7 +49,8 @@ def stopRecording(stream):
 
 def startRecording():
     global p
-    stream = p.open(format=sample_format, channels=channels, rate=SAMPLE_RATE, frames_per_buffer=CHUNK, input=True, stream_callback=audio_chunk_ready)
+#    playSoundSync("message.wav")
+    stream = p.open(input_device_index=1,format=sample_format, channels=channels, rate=SAMPLE_RATE, frames_per_buffer=CHUNK, input=True, stream_callback=audio_chunk_ready)
     stream.start_stream()
     return stream
 
@@ -78,6 +80,8 @@ def signal_handler(sig, frame):
 def audio_chunk_ready(in_data, frame_count, time_info, status):
     global currentFrames
     currentFrames.append(in_data)
+    print(f"status {status}, time {time_info}")
+    return (in_data, pyaudio.paContinue)
 
 PIN = 21
 
@@ -96,6 +100,13 @@ def onPiecePutDown():
     print("saved recording")
 
 def main():
+    info = p.get_host_api_info_by_index(0)
+    numdevices = info.get('deviceCount')
+
+    for i in range(0, numdevices):
+        if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
+            print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
+            print(p.get_device_info_by_index(i))
     global taskScheduled
     global inInterrupt
     global stream
@@ -106,7 +117,7 @@ def main():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=50)
-    signal.signal(signal.SIGINT, signal_handler)    
+    signal.signal(signal.SIGINT, signal_handler)
     signal.pause()
 
 main()
