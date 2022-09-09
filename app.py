@@ -12,8 +12,10 @@ import RPi.GPIO as GPIO
 from playsound import playsound
 import pyaudio
 import wave
-import atomos.atomic
-import atomos.atom as atom
+from atomic import AtomicLong
+import itertools
+import numpy as NP
+import datetime
 
 SAMPLE_RATE = 44100
 CHUNK = 1024
@@ -24,8 +26,17 @@ p = pyaudio.PyAudio()
 
 currentFrames = []
 
-def saveRecordingAs(recording, name):
-    write(name, SAMPLE_RATE, recording)
+def saveRecordingAs(name):
+    global currentFrames
+    flatData = list(itertools.chain(currentFrames))
+    arr = NP.array(flatData)
+    with wave.open(name, 'wb') as wa:
+        wa.setnchannels(1)
+        wa.setsampwidth(2)
+        wa.setframerate(SAMPLE_RATE)
+        wa.writeframes(arr)
+
+    currentFrames = []
 
 def playSoundSync(path): 
     playsound(path)
@@ -41,17 +52,23 @@ def startRecording():
     stream.start_stream()
     return stream
 
-taskScheduled = atom.Atom(False)
-
-def updateState(state, newState):
-    state = newState
-    return state
-
+taskScheduled = AtomicLong(0)
+isDown = AtomicLong(0)
 
 def onButtonChanged(channel):
-    global taskScheduled    
-    taskScheduled.swap(updateState, True)
+    global isDown
+    global taskScheduled
+    global inInterrupt
+    if isDown.value == 1:
+        isDown.value = 0
+    else:
+        isDown.value = 1
+
     print(f"button changed on channel: {channel} state {GPIO.input(21)}")
+    if isDown.value:
+        onPiecePickedUp()
+    else:
+        onPiecePutDown()
 
 def signal_handler(sig, frame):
     GPIO.cleanup()
@@ -59,32 +76,37 @@ def signal_handler(sig, frame):
 
 
 def audio_chunk_ready(in_data, frame_count, time_info, status):
-    print(f"got audio chunk {frame_count}")
     global currentFrames
-    #currentFrames.append(in_data)
+    currentFrames.append(in_data)
 
 PIN = 21
 
+def onPiecePickedUp():
+    global stream
+    print("start recording")
+    stream = startRecording()
+
+def onPiecePutDown():
+    print("stop recording")
+    global stream
+    stopRecording(stream)
+    timestamp = int(datetime.datetime.utcnow().timestamp())
+
+    saveRecordingAs(f"recording-{timestamp}.wav")
+    print("saved recording")
+
 def main():
     global taskScheduled
+    global inInterrupt
     global stream
+
+    taskScheduled = AtomicLong(0)
+    inInterrupt = AtomicLong(0)
 
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=50)
     signal.signal(signal.SIGINT, signal_handler)    
-
-    while (1):
-        if taskScheduled == True:
-            phonePiecePickedUp = not GPIO.input(PIN)
-            if phonePiecePickedUp:
-                #playSoundSync("message.wav")
-                stream = startRecording()
-            else:
-                stopRecording(stream)
-                timestamp = "fooo"
-#                saveRecordingAs(f"recording-{timestamp}")
-            taskScheduled = False
-
+    signal.pause()
 
 main()
