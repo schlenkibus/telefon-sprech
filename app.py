@@ -28,12 +28,14 @@ p = pyaudio.PyAudio()
 
 currentFrames = []
 
+os.makedirs(os.path.join(os.getcwd(), "recordings"), exist_ok=True)
+
 def saveRecordingAs(name):
     global currentFrames
     flatData = list(itertools.chain(currentFrames))
     print(f"recorded for {(len(flatData) * CHUNK) / SAMPLE_RATE} seconds")
     arr = NP.array(flatData)
-    with wave.open(name, 'wb') as wa:
+    with wave.open('recordings/' + name, 'wb') as wa:
         wa.setnchannels(1)
         wa.setsampwidth(2)
         wa.setframerate(SAMPLE_RATE)
@@ -42,15 +44,22 @@ def saveRecordingAs(name):
     currentFrames = []
 
 def playSoundAsync(path):
-    os.system("aplay message.wav &")
+    os.system(f"aplay {path} &")
+
+def setRecordingLED(state):
+    GPIO.output(Pin_LED, state)
 
 def stopRecording(stream):
+#    setRecordingLED(False)
+    if stream == None:
+        return
     stream.stop_stream()
     stream.close()
     stream = None
 
 def startRecording():
     global p
+#    setRecordingLED(True)
     playSoundAsync("message.wav")
     stream = p.open(input_device_index=1,format=sample_format, channels=channels, rate=SAMPLE_RATE, frames_per_buffer=CHUNK, input=True, stream_callback=audio_chunk_ready)
     stream.start_stream()
@@ -69,7 +78,7 @@ def onButtonChanged(channel):
     else:
         isDown.value = 1
 
-    print(f"button changed on channel: {channel} state {GPIO.input(21)}")
+    print(f"button changed on channel: {channel}")
     if isDown.value:
         onPiecePickedUp()
     else:
@@ -123,8 +132,8 @@ def main():
     global stream
 
     GPIO.setmode(GPIO.BCM)
-    GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=50)
+    GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=30)
     signal.signal(signal.SIGINT, signal_handler)
 
     from flask import Flask, render_template, send_file
@@ -137,7 +146,7 @@ def main():
     @app.route('/sound/<id>')
     def s(id):
         app.logger.error(id)
-        return send_file(id)
+        return send_file('recordings/' + id)
 
     app.run(host='0.0.0.0', port=8080)
 
