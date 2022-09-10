@@ -67,6 +67,8 @@ def startRecording():
 
 taskScheduled = AtomicLong(0)
 isDown = AtomicLong(0)
+stream = None
+
 
 def onButtonChanged(channel):
     global isDown
@@ -105,7 +107,8 @@ def onPiecePickedUp():
 def onPiecePutDown():
     print("stop recording")
     global stream
-    stopRecording(stream)
+    if stream != None:
+        stopRecording(stream)
     timestamp = int(datetime.datetime.utcnow().timestamp())
 
     saveRecordingAs(f"recording-{timestamp}.wav")
@@ -114,11 +117,18 @@ def onPiecePutDown():
 def getAllFilesWithExtension(ext):
     import glob, os
     files = []
-    for file in glob.glob(f"*{ext}"):
+    for file in glob.glob(f"recordings/*{ext}"):
         print(file)
         if file != 'message.wav':
             files.append(file)
     return files
+
+def dropAllButNames(l):
+    ret = []
+    for item in l:
+        ret.append(os.path.basename(item))
+
+    return ret
 
 def main():
     info = p.get_host_api_info_by_index(0)
@@ -135,12 +145,15 @@ def main():
     GPIO.setup(PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.add_event_detect(PIN, GPIO.BOTH, callback=onButtonChanged, bouncetime=30)
     signal.signal(signal.SIGINT, signal_handler)
+    global isDown
+    isDown.value = GPIO.input(PIN)
 
     from flask import Flask, render_template, send_file
     app = Flask("hurensohn")
     @app.route("/")
     def index():
         files = getAllFilesWithExtension('.wav')
+        files = dropAllButNames(files)
         return render_template('index.html', items=files)
 
     @app.route('/sound/<id>')
