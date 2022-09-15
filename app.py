@@ -1,4 +1,3 @@
-#wait for button release
 #play message with beep at the end
 #start recording right after the beep
 #wait until the button is pressed
@@ -22,7 +21,7 @@ import flask
 SAMPLE_RATE = 48000
 CHUNK = 1024
 sample_format = pyaudio.paInt16
-channels = 1
+channels = 3
 
 p = pyaudio.PyAudio()
 
@@ -34,6 +33,7 @@ def saveRecordingAs(name):
     global currentFrames
     flatData = list(itertools.chain(currentFrames))
     print(f"recorded for {(len(flatData) * CHUNK) / SAMPLE_RATE} seconds")
+    ##flatData2 = [e*10 for e in flatData] 
     arr = NP.array(flatData)
     with wave.open('recordings/' + name, 'wb') as wa:
         wa.setnchannels(1)
@@ -92,6 +92,7 @@ def signal_handler(sig, frame):
 
 
 def audio_chunk_ready(in_data, frame_count, time_info, status):
+    #print(in_data[0])
     global currentFrames
     currentFrames.append(in_data)
 #    print(f"status {status}, time {time_info}")
